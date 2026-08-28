@@ -5,6 +5,8 @@
   <p>
     <a href="http://ff.urmpgo.cn"><strong>在线演示</strong></a>
     ·
+    <a href="https://github.com/deepseek-ai/deepseek-harness"><strong>上游项目</strong></a>
+    ·
     <a href="#快速开始">快速开始</a>
     ·
     <a href="#使用指南">使用指南</a>
@@ -17,6 +19,8 @@
     <img src="https://img.shields.io/badge/license-MIT-2ea44f" alt="MIT License" />
   </p>
 </div>
+
+> **上游项目：** 本项目基于 [DeepSeek Harness（`deepseek-ai/deepseek-harness`）](https://github.com/deepseek-ai/deepseek-harness) 的插件体系开发，上游由 [@deepseek-ai](https://github.com/deepseek-ai) 维护。本仓库是独立的社区扩展，不是上游官方发行版或官方分支。
 
 > [!IMPORTANT]
 > 这是非官方社区项目，不是 DeepSeek 官方产品，也不是政府官方网站。界面、模板与模型输出用于技术演示和辅助办公；正式公文、审批结果及公开发布内容必须由有权人员复核。
@@ -37,7 +41,7 @@
 
 ## 这是什么
 
-本仓库把两个互补的 DeepSeek Harness（DSH）插件放在同一套可安装、可验证的开源目录中：
+本仓库基于上游 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) 的插件机制，把两个互补的 DSH 插件放在同一套可安装、可验证的开源目录中：
 
 | 插件 | 作用 | 入口 |
 | --- | --- | --- |
@@ -251,6 +255,6 @@ DeepSeek-Harness-Gov/
 
 ## 许可证与致谢
 
-本仓库采用 [MIT License](./LICENSE)。两个插件保留原有版权声明；`dsh-tool-hongtou` 亦有独立上游仓库 [`ExElectron/dsh-tool-hongtou`](https://github.com/ExElectron/dsh-tool-hongtou)。
+本仓库采用 [MIT License](./LICENSE)。感谢 [@deepseek-ai](https://github.com/deepseek-ai) 开源 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)；两个插件保留原有版权声明，`dsh-tool-hongtou` 亦有独立上游仓库 [`ExElectron/dsh-tool-hongtou`](https://github.com/ExElectron/dsh-tool-hongtou)。
 
 DeepSeek、DeepSeek Harness 及其他相关名称和标识归其各自权利人所有。本项目与 DeepSeek 官方及任何政府机关无隶属或背书关系。
