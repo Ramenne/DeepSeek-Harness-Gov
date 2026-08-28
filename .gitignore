@@ -1,0 +1,21 @@
+# Dependencies and credentials
+node_modules/
+.env
+.env.*
+!.env.example
+
+# Generated output and local runtime data
+output/
+**/shots/*.png
+*.log
+
+# Local backups and editor files
+*.bak
+*.before-*
+**/.pr_body.md
+Backup/
+Example/
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
