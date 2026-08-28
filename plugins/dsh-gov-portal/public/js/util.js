@@ -153,9 +153,26 @@
     return out.join('')
   }
 
+  /* ---------- 模型思考标记拆分 ---------- */
+  GOV.splitModelThinking = function (src) {
+    let text = String(src ?? '')
+    const reasoning = []
+    text = text.replace(/<think>\s*([\s\S]*?)\s*<\/think>/gi, (_, value) => {
+      if (String(value).trim()) reasoning.push(String(value).trim())
+      return ''
+    })
+    // 流式生成时 </think> 尚未到达：整段先放进已收起的思考区，不进入正文。
+    const open = text.match(/<think>\s*([\s\S]*)$/i)
+    if (open) {
+      if (String(open[1]).trim()) reasoning.push(String(open[1]).trim())
+      text = text.slice(0, open.index)
+    }
+    return { text: text.trimStart(), reasoning: reasoning.join('\n\n') }
+  }
+
   /* ---------- 红头回函标记 → 对话框内公文版式 ---------- */
   GOV.renderReply = function (src, streaming = false) {
-    const source = String(src ?? '').trim()
+    const source = GOV.splitModelThinking(src).text.trim()
     const match = streaming
       ? source.match(/<redhead-reply>\s*([\s\S]*)/i)
       : source.match(/<redhead-reply>\s*([\s\S]*?)\s*<\/redhead-reply>/i)

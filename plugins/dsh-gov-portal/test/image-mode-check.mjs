@@ -3,7 +3,7 @@
  * 注入图片配置 → 重建弹窗 → 断言图片铺满弹窗且关闭叉位于图片右上角。
  */
 import { spawn } from 'node:child_process'
-import { WebSocket } from './websocket-compat.mjs'
+const { WebSocket } = globalThis
 
 const EDGE = 'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe'
 const CDP_PORT = 9225

@@ -3,7 +3,7 @@
  * 用法：node test/screenshot.mjs
  */
 import { spawn } from 'node:child_process'
-import { WebSocket } from './websocket-compat.mjs'
+const { WebSocket } = globalThis
 
 const EDGE = 'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe'
 const CDP_PORT = 9224

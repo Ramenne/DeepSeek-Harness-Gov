@@ -31,7 +31,10 @@ export const name = 'gov-portal'
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const PUBLIC_DIR = path.join(__dirname, '..', 'public')
 
-const CONFIG_PATH = path.join(os.homedir(), '.dsh', 'gov-portal.json')
+const DSH_HOME = process.env.DSH_HOME
+  ? path.resolve(process.env.DSH_HOME)
+  : path.join(os.homedir(), '.dsh')
+const CONFIG_PATH = path.join(DSH_HOME, 'gov-portal.json')
 
 const DEFAULT_CONFIG = {
   /** 本插件监听端口 */
@@ -169,6 +172,38 @@ async function pipeSse(iterable, method, res, signal) {
 }
 
 /**
+ * Node 的 IncomingMessage 没有 Web Request 的 `signal` 属性。
+ * 为桥接到 apiProxy 的每个请求创建一个真实的 AbortSignal，并在客户端
+ * 断开连接时终止下游调用，避免流接口读取 undefined.addEventListener。
+ */
+function createRequestSignal(req, res) {
+  const controller = new AbortController()
+  const abort = () => {
+    req.removeListener('aborted', abort)
+    res.removeListener('close', abort)
+    if (!controller.signal.aborted) controller.abort()
+  }
+  req.once('aborted', abort)
+  res.once('close', abort)
+  return controller.signal
+}
+
+/**
+ * 浏览器侧的 session.prompt 在部分 DSH 版本不会自动分发斜杠命令。
+ * 当请求只包含一段 `/command ...` 文本时，直接走宿主 commands 服务，
+ * 避免把 `/hongtou` 当作普通提示词发给模型。
+ */
+async function dispatchSlashCommand(ctx, payload, signal) {
+  const content = payload?.content
+  if (!Array.isArray(content) || content.length !== 1 || content[0]?.type !== 'text') return undefined
+  const line = String(content[0].text ?? '')
+  if (!/^\/[a-z][a-z0-9_-]*(?=$|[\t\n\r ])/u.test(line)) return undefined
+  const agent = ctx.agents?.get?.(payload?.sessionId)
+  if (!agent || typeof ctx.commands?.execute !== 'function') return undefined
+  return ctx.commands.execute(agent, line, signal)
+}
+
+/**
  * 主 API 桥处理器。
  * 优先走宿主进程内 ctx.apiProxy（零网络、零 CORS、1:1 能力）；
  * 若该服务不存在，则把请求原样回退转发到主 GUI（fallbackBase）。
@@ -180,6 +215,8 @@ async function handleApi(ctx, req, res, url, config) {
     return forwardToFallback(req, res, config.fallbackBase)
   }
 
+  const requestSignal = createRequestSignal(req, res)
+
   const pathname = url.pathname
 
   // —— 流：GET /api/events.mux | /api/events.host ——
@@ -188,9 +225,9 @@ async function handleApi(ctx, req, res, url, config) {
     try {
       const stream = api.events[method === 'events.mux' ? 'mux' : 'host'](
         { rpcId: uuid(), payload: {} },
-        req.signal,
+        requestSignal,
       )
-      return await pipeSse(stream, method, res, req.signal)
+      return await pipeSse(stream, method, res, requestSignal)
     } catch (error) {
       return json(res, 500, { error: String(error?.message ?? error) })
     }
@@ -201,7 +238,7 @@ async function handleApi(ctx, req, res, url, config) {
     try {
       const sessionId = url.searchParams.get('sessionId')
       if (!sessionId) return json(res, 400, { error: 'missing sessionId query parameter' })
-      const response = await api.downloads.sessionLog({ sessionId }, req.signal)
+      const response = await api.downloads.sessionLog({ sessionId }, requestSignal)
       if (req.method === 'HEAD') {
         res.writeHead(response.status, Object.fromEntries(response.headers.entries()))
         return res.end()
@@ -247,9 +284,38 @@ async function handleApi(ctx, req, res, url, config) {
   const rpcId = typeof body?.rpcId === 'string' && body.rpcId ? body.rpcId : uuid()
   const method = `${domain}.${sub}`
   try {
+    if (method === 'sessions.prompt') {
+      const execution = await dispatchSlashCommand(ctx, body?.payload, requestSignal)
+      if (execution !== undefined) {
+        if (execution.result?.kind === 'error') {
+          return json(res, 200, {
+            type: 'server-response',
+            rpcId,
+            result: {
+              ok: false,
+              error: { code: 'command-error', message: execution.result.text, details: {} },
+            },
+          })
+        }
+        return json(res, 200, {
+          type: 'server-response',
+          rpcId,
+          result: {
+            ok: true,
+            value: {
+              accepted: true,
+              command: {
+                kind: 'success',
+                ...(execution.result?.text ? { text: execution.result.text } : {}),
+              },
+            },
+          },
+        })
+      }
+    }
     const outcome = await handler(
       { rpcId, payload: body?.payload ?? {} },
-      req.signal,
+      requestSignal,
     )
     return json(res, 200, {
       type: 'server-response',

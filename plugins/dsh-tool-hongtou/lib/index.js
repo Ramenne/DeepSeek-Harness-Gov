@@ -12,6 +12,7 @@ const name = "dsh-tool-hongtou";
 const inject = ["commands", "sessionQuery", "llm"];
 
 const PLUGIN_DIR = dirname(fileURLToPath(import.meta.url));
+const PACKAGE_DIR = dirname(PLUGIN_DIR);
 
 // 公章解析（内置 DSH 内部文件章，配置驱动可覆盖）：
 //   不传 seal 配置  → 默认使用 DSH 内部文件章（assets/seal-dsh.png）
@@ -39,8 +40,8 @@ async function resolveSeal(workspace, config = {}) {
   }
   // 默认：内置 DSH 内部文件章；保留旧素材作为安装不完整时的兜底。
   return firstExisting([
-    join(PLUGIN_DIR, "assets", "seal-dsh.png"),
-    join(PLUGIN_DIR, "assets", "seal-default.png"),
+    join(PACKAGE_DIR, "assets", "seal-dsh.png"),
+    join(PACKAGE_DIR, "assets", "seal-default.png"),
   ]);
 }
 
@@ -53,7 +54,7 @@ function timestampTag(date) {
   return `${date.getFullYear()}${pad(date.getMonth() + 1)}${pad(date.getDate())}_${pad(date.getHours())}${pad(date.getMinutes())}${pad(date.getSeconds())}`;
 }
 
-async function run(ctx, invocation) {
+async function run(ctx, invocation, config = {}) {
   const agent = invocation.agent;
   const sessionId = agent?.session?.id;
   const date = new Date();
@@ -79,8 +80,8 @@ async function run(ctx, invocation) {
   }
 
   // 阶段二：Node.js 纯代码渲染，注入 Word 2003 XML 模板骨架。
-  const workspace = agent?.workspace?.cwd ?? process.cwd();
-  const seal = await resolveSeal(workspace, ctx?.config ?? {});
+  const workspace = agent?.session?.header?.cwd ?? agent?.workspace?.cwd ?? process.cwd();
+  const seal = await resolveSeal(workspace, config);
   const xml = await renderDocument(draft, { date, seal });
   const failures = validateGeneratedXml(xml);
   if (failures.length) {
@@ -109,12 +110,12 @@ async function run(ctx, invocation) {
   };
 }
 
-function apply(ctx) {
+function apply(ctx, config = {}) {
   ctx.commands.register({
     name: "hongtou",
     description: "将当前会话完整上下文生成为红头公文 Word 2003 XML",
     input: { hint: "[事由/标题]" },
-    handler: (invocation) => run(ctx, invocation),
+    handler: (invocation) => run(ctx, invocation, config),
   });
 }
 

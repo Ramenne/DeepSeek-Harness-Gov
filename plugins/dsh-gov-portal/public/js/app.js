@@ -7,6 +7,21 @@
 
   const $ = id => document.getElementById(id)
 
+  // 公网页面仅展示并允许使用已经在本实例中验证可用的模型提供商。
+  // 如需启用新提供商，应先完成一次实际 chat/completions 验证，再加入这里。
+  const ENABLED_PROVIDERS = new Set(['minimax'])
+  const DEFAULT_MODEL = { provider: 'minimax', model: 'MiniMax-M3' }
+
+  function enabledModelGroups (groups) {
+    return (groups ?? []).filter(group => ENABLED_PROVIDERS.has(group.id ?? group.provider))
+  }
+
+  function preferredModelValue (select) {
+    const preferred = `${DEFAULT_MODEL.provider}::${DEFAULT_MODEL.model}`
+    if ([...select.options].some(option => option.value === preferred)) return preferred
+    return select.options[0]?.value ?? ''
+  }
+
   /* ================= 应用状态 ================= */
   const S = {
     sessionId: null,
@@ -413,12 +428,13 @@
       renderHome()
       return
     }
-    S.modelCatalog = res.value
+    const groups = enabledModelGroups(res.value.groups)
+    S.modelCatalog = { ...res.value, groups }
     const cur = res.value.current
     S.modelSel = { provider: cur.provider, model: cur.model, reasoningEffort: cur.reasoningEffort ?? '' }
     const sel = $('selModel')
     sel.innerHTML = ''
-    for (const g of res.value.groups ?? []) {
+    for (const g of groups) {
       const og = document.createElement('optgroup')
       og.label = `${g.name}（${g.id}）`
       for (const m of g.models ?? []) {
@@ -436,7 +452,15 @@
       opt.disabled = true
       sel.appendChild(opt)
     }
-    sel.value = `${cur.provider}::${cur.model}` || sel.options[0]?.value || ''
+    const currentValue = `${cur.provider}::${cur.model}`
+    sel.value = [...sel.options].some(option => option.value === currentValue)
+      ? currentValue
+      : preferredModelValue(sel)
+    if (sel.value && sel.value !== currentValue) {
+      const [provider, model] = sel.value.split('::')
+      const selected = await DSHApi.sessions.selectModel({ sessionId: S.sessionId, provider, model })
+      if (selected.ok) S.modelSel = selected.value.selected
+    }
     refreshEffortSelect()
     renderHome()
   }
@@ -446,7 +470,7 @@
     const res = await DSHApi.llm.models({})
     if (!res.ok) return
     // 结构：{providers: [{provider, models: [...]}]} 或兼容其它形态
-    const list = res.value?.providers ?? res.value?.groups ?? res.value?.items ?? []
+    const list = enabledModelGroups(res.value?.providers ?? res.value?.groups ?? res.value?.items)
     S.globalModelGroups = list
     // llm.models 与 session.models 都返回 groups；统一保存，供推理强度动态枚举。
     S.modelCatalog = { groups: list, failures: res.value?.failures ?? [] }
@@ -468,7 +492,7 @@
       ? `${GOVConfig.get('agent.defaultProvider')}::${GOVConfig.get('agent.defaultModel')}`
       : ''
     if (configured && [...sel.options].some(option => option.value === configured)) sel.value = configured
-    if (!sel.value && sel.options.length) sel.selectedIndex = 0
+    if (!sel.value && sel.options.length) sel.value = preferredModelValue(sel)
     const [provider, model] = (sel.value || '::').split('::')
     S.modelSel = { provider, model, reasoningEffort: '' }
     refreshEffortSelect()
@@ -960,7 +984,7 @@
     const key = `${D.turn}.${D.step}`
     let view = S.stepViews.get(key)
     if (!view) {
-      view = { reasoning: '', text: '', reasoningEl: null, textEl: null, toolBlocks: [] }
+      view = { reasoning: '', embeddedReasoning: '', text: '', reasoningEl: null, textEl: null, toolBlocks: [] }
       S.stepViews.set(key, view)
       const holder = document.createElement('div')
       holder.className = 'rcv-item'
@@ -983,11 +1007,16 @@
       case 'reasoning-delta':
         // 保留思考内容，但 details 默认不展开。
         view.reasoning += chunk.text ?? ''
-        view.reasoningEl.textContent = view.reasoning
+        view.reasoningEl.textContent = [view.reasoning, view.embeddedReasoning].filter(Boolean).join('\n\n')
         break
       case 'text-delta':
         view.text += chunk.text ?? ''
-        view.textEl.innerHTML = GOV.renderStreamingReply(view.text)
+        {
+          const parsed = GOV.splitModelThinking(view.text)
+          view.embeddedReasoning = parsed.reasoning
+          view.reasoningEl.textContent = [view.reasoning, view.embeddedReasoning].filter(Boolean).join('\n\n')
+          view.textEl.innerHTML = GOV.renderStreamingReply(parsed.text)
+        }
         break
       case 'tool-call-delta':
         // 工具调用参数流：归属 tool/call 事件渲染，此处忽略
@@ -1017,14 +1046,16 @@
     const hasTool = blocks.some(b => b.type === 'tool-call')
     if (view) {
       // 用权威内容重写文本/思路
-      const reasoning = blocks.filter(b => b.type === 'reasoning').map(b => b.text).join('\n')
-      const text = blocks.filter(b => b.type === 'text').map(b => b.text).join('\n')
+      const nativeReasoning = blocks.filter(b => b.type === 'reasoning').map(b => b.text).join('\n')
+      const parsed = GOV.splitModelThinking(blocks.filter(b => b.type === 'text').map(b => b.text).join('\n'))
+      const reasoning = [nativeReasoning, parsed.reasoning].filter(Boolean).join('\n\n')
+      const text = parsed.text
       if (reasoning) view.reasoningEl.textContent = reasoning
       if (text) view.textEl.innerHTML = GOV.renderReply(text)
       if (!text && !hasTool) view.holder.remove()
       if (!hasTool) S.stepViews.delete(key)
     } else if (!hasTool) {
-      const text = blocksToText(blocks)
+      const text = GOV.splitModelThinking(blocksToText(blocks)).text
       if (text) {
         const div = document.createElement('div')
         div.className = 'rcv-item'

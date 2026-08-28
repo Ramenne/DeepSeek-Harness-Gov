@@ -2,7 +2,7 @@
  * test/topbar-check.mjs — 诊断顶部工具条位置。
  */
 import { spawn } from 'node:child_process'
-import { WebSocket } from './websocket-compat.mjs'
+const { WebSocket } = globalThis
 
 const EDGE = 'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe'
 const CDP_PORT = 9227

@@ -3,7 +3,7 @@
  * 工作目录下拉 / 卷宗三按钮 / 删除验证码弹窗 / 新建卷宗确认工作区 / 首页跳转 / 友情链接删除 / 头条引号
  */
 import { spawn } from 'node:child_process'
-import { WebSocket } from './websocket-compat.mjs'
+const { WebSocket } = globalThis
 
 const EDGE = 'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe'
 const CDP_PORT = 9231

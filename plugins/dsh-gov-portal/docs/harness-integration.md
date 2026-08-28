@@ -5,10 +5,10 @@
 > 本文档仅讲集成面（不写业务实现）。所有代码摘录均来自本机已安装的 dsh **0.1.0-rc.6** 与参考插件 `@linxin666/dsh-remote-web-ui@0.1.14`，路径与行号可复核。
 >
 > 相关键路径：
-> - dsh CLI：`%APPDATA%\npm\node_modules\@deepseek-ai\dsh`（`lib/bin.js`、`lib/profile-boot-DG5t9aNs.js`、`lib/plugin-9h8shc4d.js`、`config/agent-presets/`）
+> - dsh CLI：`<DSH 安装目录>`（`lib/bin.js`、`lib/profile-boot-DG5t9aNs.js`、`lib/plugin-9h8shc4d.js`、`config/agent-presets/`）
 > - 依赖包：`...\@deepseek-ai\dsh\node_modules\@deepseek-ai\` 下 `dsh-host-webserver`、`dsh-host-apiproxy`、`dsh-client-connection`、`dsh-api-gateway`、`dsh-typert-protocol`、`dsh-agent`、`dsh-agent-loop`、`dsh-session`、`dsh-session-stats`、`dsh-session-projection`、`dsh-token-meter`、`dsh-settings`(+`dsh-settings-file`)、`dsh-permission-presets`、`dsh-sandbox-policy`、`dsh-headless`、`dsh-web-app`、`dsh-api-remotes`、`dsh-base` 等
-> - 参考插件：`%USERPROFILE%\.dsh\profiles\web\node_modules\@linxin666\dsh-remote-web-ui\`（`lib/index.js` 2151 行 = 宿主侧；`lib/mobile.js` = 移动端页面+客户端；`cordis.patch.yml` = bundle patch）
-> - 用户 profile：`%USERPROFILE%\.dsh\profiles\web\`（`package.json` 的 `dsh.profile.bundles`、`cordis.patch.yml`、`settings.yaml`——注意 settings.yaml 实际在 `$DSH_HOME/settings.yaml`）
+> - 参考插件：`$DSH_HOME\profiles\web\node_modules\@linxin666\dsh-remote-web-ui\`（`lib/index.js` 2151 行 = 宿主侧；`lib/mobile.js` = 移动端页面+客户端；`cordis.patch.yml` = bundle patch）
+> - 用户 profile：`$DSH_HOME\profiles\web\`（`package.json` 的 `dsh.profile.bundles`、`cordis.patch.yml`、`settings.yaml`——注意 settings.yaml 其实在 `$DSH_HOME` 即 `$DSH_HOME\settings.yaml`）
 
 ---
 
@@ -36,7 +36,7 @@
 dsh 的 profile 是一个「空根配置 + 多层 patch 叠加」的 cordis 树，不是普通 `package.json` 里写死插件列表。根因在 `lib/profile-boot-DG5t9aNs.js`：
 
 ```js
-// %APPDATA%\npm\node_modules\@deepseek-ai\dsh\lib\profile-boot-DG5t9aNs.js
+// <DSH 安装目录>\lib\profile-boot-DG5t9aNs.js
 function composeProfile(name, patchFiles) {
   const profile = prepareProfile(name);                 // 读取 .dsh/profiles/<name>
   const homePatches  = loadOptionalPatches(NAME, homePatchPath()) ?? [];   // $DSH_HOME/cordis.patch.yml
@@ -50,7 +50,7 @@ function composeProfile(name, patchFiles) {
 
 ### A.2 `dsh.profile.bundles` 与 package.json 的关系
 
-`%USERPROFILE%\.dsh\profiles\web\package.json`（示例 profile）：
+`$DSH_HOME\profiles\web\package.json`（本机实况）：
 
 ```jsonc
 {
@@ -85,9 +85,9 @@ function composeProfile(name, patchFiles) {
 `lib/plugin-9h8shc4d.js`：薄薄一层 pnpm 转发器。
 
 ```js
-// %APPDATA%\npm\node_modules\@deepseek-ai\dsh\lib\plugin-9h8shc4d.js
+// <DSH 安装目录>\lib\plugin-9h8shc4d.js
 function runPlugin(profile, args) {
-  const dir = resolveProfileDir(profile);           // %USERPROFILE%\.dsh\profiles\web
+  const dir = resolveProfileDir(profile);           // $DSH_HOME\profiles\web
   if (!existsSync(join(dir, "package.json"))) initProfile(...);   // 首次自动初始化
   const result = spawnSync("pnpm", args.map((a) => anchorPathSpec(a, process.cwd())), {
     cwd: dir, stdio: "inherit", shell: process.platform === "win32" });
@@ -104,12 +104,12 @@ function runPlugin(profile, args) {
 
 ### A.4 `cordis.patch.yml` 的作用
 
-两层用户 patch（profile 级 + `$DSH_HOME` 级），是「最终用户改配置」的地方，被 boot 在 bundle 层之后叠加。示例 `profiles/web/cordis.patch.yml` 是空数组 `[]`；`$DSH_HOME/cordis.patch.yml` 可包含由界面插件管理的 `- id: ui-skin-* / disabled: true` 行。**你的插件配置（如端口）也可直接在 profile 的 cordis.patch.yml 写行**，但更推荐用 settings 命名空间（见 G）。
+两层用户 patch（profile 级 + `$DSH_HOME` 级），是「最终用户改配置」的地方，被 boot 在 bundle 层之后叠加。`profiles/web/cordis.patch.yml` 目前是空数组 `[]`；`$DSH_HOME\cordis.patch.yml` 里是 dsh-skin 管理的 `- id: ui-skin-* / disabled: true` 行。**你的插件配置（如端口）也可直接在 profile 的 cordis.patch.yml 写行**，但更推荐用 settings 命名空间（见 G）。
 
 ### A.5 插件包需要什么字段（参考 `dsh-remote-web-ui/package.json` 实况）
 
 ```jsonc
-// %USERPROFILE%\.dsh\profiles\web\node_modules\@linxin666\dsh-remote-web-ui\package.json
+// $DSH_HOME\profiles\web\node_modules\@linxin666\dsh-remote-web-ui\package.json
 {
   "name": "@linxin666/dsh-remote-web-ui",
   "version": "0.1.14",
@@ -524,7 +524,7 @@ installSettingsSection(ctx, ns, schema, entry, hooks);   // 插件标准接法�
 
 命名空间规范 `settingsNamespace()`：`/^[a-z][a-z0-9-]*$/`（kebab-case，如 `remote-web-ui`、`agent-loop`、`shell`）。
 
-**落盘**：`dsh-settings-file`（base 层已挂，`dsh-base/cordis.patch.yml` L78-79）持久化到 **`$DSH_HOME/settings.yaml`**（`resolveSpec`，`lib/index.js` L31：`resolve(config.path ?? join(resolveDshHome(config.dshHome), "settings.yaml"))`；yaml 保留注释的 leaf-diff 写入 + chokidar 热重载）。以下是脱敏示例：
+**落盘**：`dsh-settings-file`（base 层已挂，`dsh-base/cordis.patch.yml` L78-79）持久化到 **`$DSH_HOME/settings.yaml`**（`resolveSpec`，`lib/index.js` L31：`resolve(config.path ?? join(resolveDshHome(config.dshHome), "settings.yaml"))`；yaml 保留注释的 leaf-diff 写入 + chokidar 热重载）。本机 `$DSH_HOME\settings.yaml` 实样：
 
 ```yaml
 ui-onboarding: { welcomeNoticeVersion: 2026-08-13.1 }

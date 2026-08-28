@@ -6,4 +6,4 @@
 - insert:
     - id: gov-portal
       name: 'dsh-gov-portal'
-      inject: [apiProxy]
+      inject: [apiProxy, commands, agents]

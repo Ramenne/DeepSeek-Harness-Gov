@@ -42,6 +42,13 @@ const mockApi = {
 const mockCtx = {
   get: name => (name === 'apiProxy' ? mockApi : undefined),
   on: (ev, fn) => { if (ev === 'dispose') mockCtx._dispose = fn },
+  agents: { get: sessionId => (sessionId === 'sess-new' ? { session: { id: sessionId } } : undefined) },
+  commands: {
+    execute: async (_agent, line) => ({
+      commandId: 'cmd-smoke-1',
+      result: { kind: 'success', text: `命令已执行：${line}` },
+    }),
+  },
 }
 
 GovPortal(mockCtx, { port: 3181, host: '127.0.0.1' })
@@ -95,6 +102,25 @@ await sleep(600)
   const resp = await fetch(base + '/api/whatever.unknown', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ rpcId: 'x', method: 'whatever.unknown', payload: {} }) })
   const body = await resp.json()
   assert(resp.status === 404, '未知方法返回 404')
+}
+
+/* 4.1 斜杠命令由门户直接交给宿主 commands，不进入模型 */
+{
+  const resp = await fetch(base + '/api/session.prompt', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({
+      type: 'client-request', rpcId: 'rpc-command', method: 'session.prompt',
+      payload: {
+        sessionId: 'sess-new', mode: 'queue',
+        content: [{ type: 'text', text: '/hongtou 冒烟验证' }],
+      },
+    }),
+  })
+  const body = await resp.json()
+  assert(resp.status === 200 && body.result?.ok === true
+    && body.result.value?.command?.text?.includes('/hongtou 冒烟验证'),
+  'session.prompt 斜杠命令直接分发到 commands')
 }
 
 /* 5. SSE 流（events.mux） */

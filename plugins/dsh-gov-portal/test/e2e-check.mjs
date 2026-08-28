@@ -5,7 +5,7 @@
  * 用法：node test/e2e-check.mjs [url] [edge路径]
  */
 import { spawn } from 'node:child_process'
-import { WebSocket } from './websocket-compat.mjs'
+const { WebSocket } = globalThis
 
 const URL_PAGE = process.argv[2] ?? 'http://127.0.0.1:3081/'
 const EDGE = process.argv[3] ?? 'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe'
