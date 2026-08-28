@@ -20,7 +20,7 @@
   </p>
 </div>
 
-> **上游项目：** 本项目基于 [DeepSeek Harness（`deepseek-ai/deepseek-harness`）](https://github.com/deepseek-ai/deepseek-harness) 的插件体系开发，上游由 [@deepseek-ai](https://github.com/deepseek-ai) 维护。本仓库是独立的社区扩展，不是上游官方发行版或官方分支。
+> **上游项目：** 本项目基于 [DeepSeek Harness（`deepseek-ai/deepseek-harness`）](https://github.com/deepseek-ai/deepseek-harness) 的插件体系开发，上游由 [@deepseek-ai](https://github.com/deepseek-ai) 维护。
 
 > [!IMPORTANT]
 > 这是非官方社区项目，不是 DeepSeek 官方产品，也不是政府官方网站。界面、模板与模型输出用于技术演示和辅助办公；正式公文、审批结果及公开发布内容必须由有权人员复核。
